@@ -1,0 +1,16 @@
+.venv
+*.pth
+*.pt
+
+*.cache
+__pycache__
+
+data/image-seq/**
+data/input/**
+data/dataset/**/images/**
+data/dataset/**/labels/**
+
+!data/image-seq/.gitkeep
+!data/input/.gitkeep
+!data/dataset/**/images/.gitkeep
+!data/dataset/**/labels/.gitkeep
