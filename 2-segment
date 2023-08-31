@@ -21,7 +21,7 @@ IMAGE_DIR = "data/image-seq"
 OUTPUT_DIR = "data/masks"
 TEMPFILE = os.path.join(tempfile.mkdtemp(), 'tmp.png')
 
-the_number = 0
+# the_number = 0
 
 class Annotate:
     def __init__(self, initial_image, initial_bbox):
@@ -31,6 +31,7 @@ class Annotate:
         self.result = None
         self.bbox = None
 
+        self.image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         cv2.imwrite(TEMPFILE, self.image)
 
         self.rect = Rectangle((0,0), 1, 1, facecolor='none', alpha=0.5, edgecolor='red', linewidth=1)
@@ -62,6 +63,10 @@ class Annotate:
     def on_release(self, event):
         self.x1 = event.xdata
         self.y1 = event.ydata
+
+        if self.x0 is None or self.x1 is None \
+            or self.y0 is None or self.y1 is None:
+            return
 
         if self.x0 > self.x1:
             tmp = self.x0
@@ -98,63 +103,50 @@ class Annotate:
         self.result = model.predict(TEMPFILE, bboxes=self.bbox)[0]
         self.mask_image = self.result.plot()
 
+        # also draw lines because they're easier to see
+        cv2.drawContours(self.mask_image, np.int32([self.result.masks.xy[0]]), -1, (255,0,0,255), 4)
 
-CLASS = {
-    'dongle': 0,
-    'izzy': 1,
-    'coffee_cup': 2,
-    'coin': 3,
-    'controller': 4,
-    'lanyard': 5,
-    'pen': 6,
-    'pringles': 7,
-    'small_pringles': 8,
-    'scissors': 9,
-    'screwdriver': 10,
-    'coffee': 11,
-    'usb_drive': 12,
-}
+with open('data/classes.json', 'r') as f:
+    CLASS = json.loads(f.read())
 
-for id, cls, description in list_inputs():
+for id, cls in list_inputs():
     # find the image sequence directory
     image_subdir = os.path.join(IMAGE_DIR, id)
 
     if not os.path.exists(image_subdir):
-        print(name, 'has not been generated yet or is missing frames!')
+        print(cls, 'has not been generated yet or is missing frames!')
         continue
 
-    print('Processing [' + id + ']', '"' + description + '"', '(' + cls + ')')
+    print('Processing [' + id + ']', '"' + cls + '"')
     files = sorted(os.listdir(image_subdir))
 
     last_bbox = None
 
     # read all images
-    for image in files:        
+    for image_name in files:
+        # check if we've already created this mask
+        mask_file = os.path.join(OUTPUT_DIR, f'{id}-{image_name}')
+        if os.path.exists(f'{mask_file}.npy'):
+            print('Skipping', f'{id}-{image_name}', 'as mask already exists!')
+            continue
+
         # load image metadata
-        filename = os.path.join(image_subdir, image)
+        filename = os.path.join(image_subdir, image_name)
         image = cv2.imread(filename)
 
         height, width, _ = image.shape
         scale_factor = TARGET_HEIGHT / max(height, width)
         width, height = (round(width * scale_factor), round(height * scale_factor))
-
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image, (width, height))
 
         # annotate
         result = None
         while result is None:
             a = Annotate(initial_image=image, initial_bbox=last_bbox)
+            plt.title(f'{cls}: {image_name}')
             plt.show()
 
             last_bbox = a.bbox
             result = a.result
 
-        the_number += 1
-
-        # save result
-        with open(os.path.join('data', 'dataset', 'train', 'labels', f'{the_number}.txt'), 'w') as f:
-            f.write(str(CLASS[cls]) + ' ')
-            f.write(' '.join([str(a) for a in result.masks.xyn[0].flatten().tolist()]))
-
-        cv2.imwrite(os.path.join('data', 'dataset', 'train', 'images', f'{the_number}.png'), image)
+        np.save(mask_file, result.masks.xyn[0])            

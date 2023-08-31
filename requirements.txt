@@ -1,4 +1,8 @@
-segment-anything @ git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588
-mobile-sam @ git+https://github.com/ChaoningZhang/MobileSAM.git@3ca39f8e58455ba5f1ffbbf38f9f9b570b12a3d6
 ultralytics
+torch
+torchvision
+matplotlib
+numpy
+opencv-python
 timm
+ordered_set

@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+import os
+import cv2
+import json
+import random
+import numpy as np
+
+# debug
+import matplotlib.pyplot as plt
+
+SEED = 48543
+GEN_IMAGES = 2000
+MIN_PER_IMAGE = 2
+MAX_PER_IMAGE = 10
+MIN_COVER = 0.3
+MAX_COVER = 0.6
+DEBUG = False
+INPUT_DIR = 'data/object-cutouts'
+INPUT_BACKGROUND_DIR = 'data/backgrounds'
+OUTPUT_IMAGES_DIR = 'data/dataset/train/images'
+OUTPUT_LABELS_DIR = 'data/dataset/train/labels'
+random.seed(SEED)
+
+# load class data
+with open('data/classes.json', 'r') as f:
+    CLASS = json.loads(f.read())
+
+# create source lists
+cutouts = [
+    file
+        for file
+        in os.listdir(INPUT_DIR)
+        if file.endswith('.png')
+]
+
+backgrounds = [
+    file for file in
+        [cv2.imread(os.path.join(INPUT_BACKGROUND_DIR, file))
+            for file
+            in os.listdir(INPUT_BACKGROUND_DIR)
+            if file != '.gitkeep']
+        if file is not None
+]
+
+random.shuffle(cutouts)
+random.shuffle(backgrounds)
+
+# generate required number of composite images
+for i in range(1, GEN_IMAGES + 1):
+    print(f'[{i} / {GEN_IMAGES}]')
+
+    background = backgrounds.pop(0)
+    backgrounds.append(background)
+    background_height, background_width, _ = background.shape
+
+    plot = np.array(background, copy=True)
+    GEN_OBJECTS = random.randint(MIN_PER_IMAGE, MAX_PER_IMAGE)
+    SEGMENTS = []
+
+    for _ in range(0, GEN_OBJECTS):
+        cutout = cutouts.pop(0)
+        cutouts.append(cutout)
+        cls,_ = cutout.split(',', 1)
+
+        cutout_image = cv2.imread(os.path.join(INPUT_DIR, cutout), cv2.IMREAD_UNCHANGED)
+        cutout_height, cutout_width, _ = cutout_image.shape
+        
+        target_cover = random.uniform(MIN_COVER, MAX_COVER)
+        try_width, try_height = (
+            background_width * target_cover,
+            background_height * target_cover
+        )
+
+        acceptable_width, acceptable_height = (
+            min(cutout_width, min(background_width, (try_height / cutout_height) * cutout_width)),
+            min(cutout_height, min(background_height, (try_width / cutout_width) * cutout_height)),
+        )
+
+        target_width, target_height = (
+            min(acceptable_width, acceptable_height * (cutout_width / cutout_height)),
+            min(acceptable_height, acceptable_width * (cutout_height / cutout_width)),
+        )
+
+        sf = target_width / cutout_width
+
+        cutout_image = cv2.resize(cutout_image,
+            (round(target_width), round(target_height)))
+        cutout_height, cutout_width, _ = cutout_image.shape
+
+        # target placement
+        x = random.randint(0, background_width - cutout_width)
+        y = random.randint(0, background_height - cutout_height)
+
+        # create the overlay image
+        overlay_image = np.zeros((background_height, background_width, 4), dtype=np.uint8)
+        overlay_image[y:y+cutout_height,x:x+cutout_width] = cutout_image
+        
+        # extract alpha channel and use it as a mask
+        alpha = overlay_image[:,:,3] / 255.0
+        mask = np.repeat(alpha[:, :, np.newaxis], 3, axis=2)
+
+        # composite the images together
+        plot = plot * (1.0 - mask) \
+            + overlay_image[:,:,:3] * mask
+        
+        # load segment data
+        segment = np.load(os.path.join(INPUT_DIR, cutout[:-3] + 'npy'))
+        segment = np.array([
+            [(x + px * sf) / background_width, (y + py * sf) / background_height]
+                for px, py
+                in segment
+        ])
+
+        SEGMENTS.append((CLASS[cls], segment))
+
+        if DEBUG:
+            cv2.drawContours(plot, np.int32([segment]), -1, (255,0,0,255), 3)
+    
+    plot = plot.astype(np.uint8)
+
+    # write to the dataset
+    cv2.imwrite(os.path.join(OUTPUT_IMAGES_DIR, f'{i}.png'), plot)
+    with open(os.path.join(OUTPUT_LABELS_DIR, f'{i}.txt'), 'w') as f:
+        f.write('\n'.join([
+            str(cls) + ' ' + ' '.join([str(a) for a in segment.flatten().tolist()])
+                for cls, segment
+                in SEGMENTS
+        ]))
+
+    if DEBUG:
+        plotted_image = cv2.cvtColor(plot, cv2.COLOR_BGR2RGB)
+        plt.axis('off')
+        plt.imshow(plotted_image)
+        plt.show()

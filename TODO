@@ -1,0 +1,3 @@
+- pick object images by class rather than random file
+- occlude the segmentation mask when overlaying other objects
+- apply effects to images
