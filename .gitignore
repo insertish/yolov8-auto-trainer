@@ -5,6 +5,8 @@
 *.cache
 __pycache__
 
+data.1
+
 data/classes.json
 data/dataset.yaml
 
