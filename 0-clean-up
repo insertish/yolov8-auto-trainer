@@ -5,7 +5,7 @@ import shutil
 
 if len(sys.argv) < 2:
     print('Usage:')
-    print('./0-clean-up [sequence|masks|objects|dataset|all]')
+    print('./0-clean-up [masks|objects|dataset|all]')
     exit()
 
 target = sys.argv[1]
@@ -21,10 +21,6 @@ def delete_excl_gitkeep(path):
             os.remove(fn)
         else:
             shutil.rmtree(fn)
-
-# delete sequence
-if target == 'sequence' or target == 'all':
-    delete_excl_gitkeep('data/image-seq')
 
 # delete objects
 if target == 'objects' or target == 'all':
