@@ -5,6 +5,9 @@ import json
 import random
 import numpy as np
 
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
+
 # debug
 import matplotlib.pyplot as plt
 
@@ -12,7 +15,7 @@ SEED = 48543
 GEN_IMAGES = 3500
 MIN_PER_IMAGE = 2
 MAX_PER_IMAGE = 7
-MIN_COVER = 0.3
+MIN_COVER = 0.1
 MAX_COVER = 0.6
 DEBUG = 'DEBUG' in os.environ and os.environ['DEBUG'] == '1'
 INPUT_DIR = 'data/object-cutouts'
@@ -150,24 +153,100 @@ for i in range(1, GEN_IMAGES + 1):
                 in segment
         ])
 
-        SEGMENTS.append((CLASS[cls], segment))
+        # occlude existing masks
+        polygon = Polygon(segment)
+        for i in range(0, len(SEGMENTS)):
+            # remove any points that are within the mask we just created
+            cls_id, mask = SEGMENTS[i]
+            keep = [
+                not polygon.contains(Point([x, y]))
+                    for x, y
+                    in mask
+            ]
+            
+            new_mask = mask[keep]
 
-        if DEBUG:
-            cv2.drawContours(plot, np.int32([segment]), -1, (255,0,0,255), 3)
+            try:
+                # try to merge points into the object
+                merge_index = next(i for i, x in enumerate(keep) if not x)
+
+                new_polygon = Polygon(mask)
+                new_points = np.array([
+                    [x, y]
+                        for x, y
+                        in segment
+                        if new_polygon.contains(Point([x, y]))
+                ]) # NOTE: we assume there's only one segment of overlap
+                # this will not work properly with more but this is more
+                # of a bandaid fix than anything.
+
+                # FIXME: handle each segment of points and do some funny math
+                # to determine which segment from the object needs to be pulled out
+
+                # try to roughly match the direction of the two merged segments
+                isx, isy = new_mask[merge_index - 1]
+                iex, iey = new_mask[merge_index]
+
+                jsx, jsy = new_points[0]
+                jex, jey = new_points[len(new_points) - 1]
+
+                flip_x, flip_y = False, False
+
+                if (iex > isx and jsx > jex) or (isx > iex and jex > jsx):
+                    flip_x = True
+                
+                if (iey > isy and jsy > jey) or (isy > iey and jey > jsy):
+                    flip_y = True
+                
+                # apply operation
+                if flip_x or flip_y:
+                    new_points = new_points[::-1]
+
+                SEGMENTS[i] = (cls_id, np.concatenate((new_mask[:merge_index], new_points, new_mask[merge_index:]), axis=0))
+            except StopIteration:
+                pass
+            except IndexError:
+                # give up if we can't read points
+                SEGMENTS[i] = (cls_id, new_mask)
+
+        # add new mask
+        SEGMENTS.append((CLASS[cls], segment))
     
     plot = plot.astype(np.uint8)
 
-    # write to the dataset
-    cv2.imwrite(os.path.join(OUTPUT_IMAGES_DIR, f'{i}.png'), plot)
-    with open(os.path.join(OUTPUT_LABELS_DIR, f'{i}.txt'), 'w') as f:
-        f.write('\n'.join([
-            str(cls) + ' ' + ' '.join([str(a) for a in segment.flatten().tolist()])
-                for cls, segment
-                in SEGMENTS
-        ]))
-
     if DEBUG:
+        # plot segmentation masks
+        i, j, k = 0, 0, 0
+        for _, segment in SEGMENTS:
+            segxy = np.array([
+                [x * background_width, y * background_height]
+                    for x, y
+                    in segment
+            ])
+
+            cv2.drawContours(plot, np.int32([segxy]), -1, (i,j,k), 8)
+
+            i += 128
+            if i > 255:
+                i = 0
+                j += 128
+                if j > 255:
+                    j = 0
+                    k += 128
+                    if k > 255:
+                        k = 0
+
+        # show debug output
         plotted_image = cv2.cvtColor(plot, cv2.COLOR_BGR2RGB)
         plt.axis('off')
         plt.imshow(plotted_image)
         plt.show()
+    else:
+        # write to the dataset
+        cv2.imwrite(os.path.join(OUTPUT_IMAGES_DIR, f'{i}.png'), plot)
+        with open(os.path.join(OUTPUT_LABELS_DIR, f'{i}.txt'), 'w') as f:
+            f.write('\n'.join([
+                str(cls) + ' ' + ' '.join([str(a) for a in segment.flatten().tolist()])
+                    for cls, segment
+                    in SEGMENTS
+            ]))
