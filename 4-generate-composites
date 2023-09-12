@@ -155,9 +155,9 @@ for i in range(1, GEN_IMAGES + 1):
 
         # occlude existing masks
         polygon = Polygon(segment)
-        for i in range(0, len(SEGMENTS)):
+        for j in range(0, len(SEGMENTS)):
             # remove any points that are within the mask we just created
-            cls_id, mask = SEGMENTS[i]
+            cls_id, mask = SEGMENTS[j]
             keep = [
                 not polygon.contains(Point([x, y]))
                     for x, y
@@ -202,12 +202,12 @@ for i in range(1, GEN_IMAGES + 1):
                 if flip_x or flip_y:
                     new_points = new_points[::-1]
 
-                SEGMENTS[i] = (cls_id, np.concatenate((new_mask[:merge_index], new_points, new_mask[merge_index:]), axis=0))
+                SEGMENTS[j] = (cls_id, np.concatenate((new_mask[:merge_index], new_points, new_mask[merge_index:]), axis=0))
             except StopIteration:
                 pass
             except IndexError:
                 # give up if we can't read points
-                SEGMENTS[i] = (cls_id, new_mask)
+                SEGMENTS[j] = (cls_id, new_mask)
 
         # add new mask
         SEGMENTS.append((CLASS[cls], segment))
