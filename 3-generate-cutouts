@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 # configuration
 SEED = 48543
 GEN_IMAGES = 5
-DEBUG = False
+DEBUG = 'DEBUG' in os.environ and os.environ['DEBUG'] == '1'
 MAX_SIZE = 512
 random.seed(SEED)
 
@@ -102,10 +102,10 @@ for mask_file in masks:
         print(DEG, 'degrees')
 
         rid = random.randint(10000, 99999)
-        out_file = f'{cls},{rid}-{image_file}-{i}'
+        out_file = f'{cls},{i},{rid}-{image_file}'
         out_filepath = os.path.join(OUTPUT_DIR, f'{out_file}.png')
 
-        if os.path.exists(out_filepath):
+        if os.path.exists(out_filepath) and not DEBUG:
             continue
 
         theta = math.radians(DEG)
@@ -135,7 +135,7 @@ for mask_file in masks:
 
         try:
             if DEBUG:
-                cv2.drawContours(rotated_object_image, np.int32([mask]), -1, (255,0,0,255), 10)
+                cv2.drawContours(rotated_object_image, np.int32([mask]), -1, (255,0,0,255), 4)
                 plt.imshow(rotated_object_image)
                 plt.show()
             else:
