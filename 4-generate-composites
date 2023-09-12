@@ -12,7 +12,7 @@ from shapely.geometry.polygon import Polygon
 import matplotlib.pyplot as plt
 
 SEED = 48543
-GEN_IMAGES = 3500
+GEN_IMAGES = 2500
 MIN_PER_IMAGE = 2
 MAX_PER_IMAGE = 7
 MIN_COVER = 0.1
