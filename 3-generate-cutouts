@@ -62,7 +62,11 @@ for mask_file in masks:
     mask_image = np.zeros((height, width), np.uint8)
     xyn = np.load(os.path.join(INPUT_DIR, mask_file))
     xy = np.array([[x * width, y * height] for x, y in xyn])
-    cv2.fillPoly(mask_image, pts = np.int32([xy]), color = (255,255,255))
+
+    try:
+        cv2.fillPoly(mask_image, pts = np.int32([xy]), color = (255,255,255))
+    except Exception:
+        continue
 
     # full object image
     object_image = np.zeros((height, width, 4), dtype=np.uint8)

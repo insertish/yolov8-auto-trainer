@@ -1,6 +1,7 @@
 .venv
 *.pth
 *.pt
+*.tar.gz
 
 *.cache
 __pycache__
