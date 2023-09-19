@@ -17,6 +17,7 @@ MIN_PER_IMAGE = 2
 MAX_PER_IMAGE = 7
 MIN_COVER = 0.1
 MAX_COVER = 0.6
+IMGSZ = 640
 DEBUG = 'DEBUG' in os.environ and os.environ['DEBUG'] == '1'
 INPUT_DIR = 'data/object-cutouts'
 INPUT_BACKGROUND_DIR = 'data/backgrounds'
@@ -78,9 +79,10 @@ def next_cutout():
 def load_bg(file):
     print('Loading background...', file)
     img = cv2.imread(os.path.join(INPUT_BACKGROUND_DIR, file))
-    height, width, _ = img.shape
-    img = cv2.resize(img,
-        (round(width * (640 / height)), round(640)))
+    if IMGSZ is not None:
+        height, width, _ = img.shape
+        img = cv2.resize(img,
+            (round(width * (IMGSZ / height)), round(IMGSZ)))
     return img
 
 # load backgrounds
