@@ -75,10 +75,18 @@ def next_cutout():
     # return file
     return file
 
+def load_bg(file):
+    print('Loading background...', file)
+    img = cv2.imread(os.path.join(INPUT_BACKGROUND_DIR, file))
+    height, width, _ = img.shape
+    img = cv2.resize(img,
+        (round(width * (640 / height)), round(640)))
+    return img
+
 # load backgrounds
 backgrounds = [
     file for file in
-        [cv2.imread(os.path.join(INPUT_BACKGROUND_DIR, file))
+        [load_bg(file)
             for file
             in os.listdir(INPUT_BACKGROUND_DIR)
             if file != '.gitkeep']

@@ -3,6 +3,9 @@
 *.pt
 *.tar.gz
 
+wandb
+runs
+
 *.cache
 __pycache__
 
