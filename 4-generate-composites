@@ -163,64 +163,69 @@ for i in range(1, GEN_IMAGES + 1):
                 in segment
         ])
 
-        # occlude existing masks
-        polygon = Polygon(segment)
-        for j in range(0, len(SEGMENTS)):
-            # remove any points that are within the mask we just created
-            cls_id, mask = SEGMENTS[j]
-            keep = [
-                not polygon.contains(Point([x, y]))
-                    for x, y
-                    in mask
-            ]
-            
-            new_mask = mask[keep]
-
-            try:
-                # try to merge points into the object
-                merge_index = next(i for i, x in enumerate(keep) if not x)
-
-                new_polygon = Polygon(mask)
-                new_points = np.array([
-                    [x, y]
+        try:
+            # occlude existing masks
+            polygon = Polygon(segment)
+            for j in range(0, len(SEGMENTS)):
+                # remove any points that are within the mask we just created
+                cls_id, mask = SEGMENTS[j]
+                keep = [
+                    not polygon.contains(Point([x, y]))
                         for x, y
-                        in segment
-                        if new_polygon.contains(Point([x, y]))
-                ]) # NOTE: we assume there's only one segment of overlap
-                # this will not work properly with more but this is more
-                # of a bandaid fix than anything.
-
-                # FIXME: handle each segment of points and do some funny math
-                # to determine which segment from the object needs to be pulled out
-
-                # try to roughly match the direction of the two merged segments
-                isx, isy = new_mask[merge_index - 1]
-                iex, iey = new_mask[merge_index]
-
-                jsx, jsy = new_points[0]
-                jex, jey = new_points[len(new_points) - 1]
-
-                flip_x, flip_y = False, False
-
-                if (iex > isx and jsx > jex) or (isx > iex and jex > jsx):
-                    flip_x = True
+                        in mask
+                ]
                 
-                if (iey > isy and jsy > jey) or (isy > iey and jey > jsy):
-                    flip_y = True
-                
-                # apply operation
-                if flip_x or flip_y:
-                    new_points = new_points[::-1]
+                new_mask = mask[keep]
 
-                SEGMENTS[j] = (cls_id, np.concatenate((new_mask[:merge_index], new_points, new_mask[merge_index:]), axis=0))
-            except StopIteration:
-                pass
-            except IndexError:
-                # give up if we can't read points
-                SEGMENTS[j] = (cls_id, new_mask)
+                try:
+                    # try to merge points into the object
+                    merge_index = next(i for i, x in enumerate(keep) if not x)
 
-        # add new mask
-        SEGMENTS.append((CLASS[cls], segment))
+                    new_polygon = Polygon(mask)
+                    new_points = np.array([
+                        [x, y]
+                            for x, y
+                            in segment
+                            if new_polygon.contains(Point([x, y]))
+                    ]) # NOTE: we assume there's only one segment of overlap
+                    # this will not work properly with more but this is more
+                    # of a bandaid fix than anything.
+
+                    # FIXME: handle each segment of points and do some funny math
+                    # to determine which segment from the object needs to be pulled out
+
+                    # try to roughly match the direction of the two merged segments
+                    isx, isy = new_mask[merge_index - 1]
+                    iex, iey = new_mask[merge_index]
+
+                    jsx, jsy = new_points[0]
+                    jex, jey = new_points[len(new_points) - 1]
+
+                    flip_x, flip_y = False, False
+
+                    if (iex > isx and jsx > jex) or (isx > iex and jex > jsx):
+                        flip_x = True
+                    
+                    if (iey > isy and jsy > jey) or (isy > iey and jey > jsy):
+                        flip_y = True
+                    
+                    # apply operation
+                    if flip_x or flip_y:
+                        new_points = new_points[::-1]
+
+                    SEGMENTS[j] = (cls_id, np.concatenate((new_mask[:merge_index], new_points, new_mask[merge_index:]), axis=0))
+                except StopIteration:
+                    pass
+                except IndexError:
+                    # give up if we can't read points
+                    SEGMENTS[j] = (cls_id, new_mask)
+
+            # add new mask
+            SEGMENTS.append((CLASS[cls], segment))
+        except Exception as e:
+            print('Skipping object due to error')
+            print(e)
+            continue
     
     plot = plot.astype(np.uint8)
 
